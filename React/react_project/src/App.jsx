@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import { useState } from 'react';
 
 function WriteForm(props){
   return(<>
@@ -16,29 +16,49 @@ function WriteForm(props){
         <input type="text" name="title" />
         <input type="submit" value="추가" />
     </form>
-    <div>
-    </div>
+  </>)
+}
+
+const TopComp = ({MyData}) => {
+  return(<>
+    <ol>
+      <li>프론트엔드</li>
+      <ul>
+        {MyData.front.map((item, i) => <li key={i}>{item}</li>)}
+      </ul>
+      <li>백엔드</li>
+      <ul>
+        {MyData.back.map((item, i) => <li key={i}>{item}</li>)}
+      </ul>
+    </ol>
   </>)
 }
 
 function App(){
-  const [message, setMessage] = useState('폼값 검증 진행 중');
+  const [MyData, setMyData] = useState({
+    front: ['HTML5', 'CSS3', 'Javascript', 'jQuery'],
+    back: ['Java', 'Oracle', 'JSP', 'SpringBoot'],
+  });
+  const [message, setMessage] = useState("폼값 입력 안됨");
+  const addData = (type, msg) => {
+    setMyData({
+      ...MyData, 
+      [type]: [...MyData[type], msg]
+    });
+  }
   return(<>
-    <div>
-      <h2>React-Form</h2>
-      <WriteForm writeAction={(gu, ti)=>{
-        console.log("Form값", gu, ti);
-        if(gu !== '' && ti !==''){
-          let frmValue = `검증 완료 폼값 : ${gu}, ${ti}`;
-          setMessage(frmValue);
-        }
-        else{
-          alert("빈 값 있음");
-        }
-      }}></WriteForm>
-      <pre>{message}</pre>
-    </div>
+    <h2>React-Shallow Comparison</h2>
+    <TopComp MyData={MyData}></TopComp>
+    <WriteForm writeAction = {(gu, ti) => {
+      if (gu !== '' && ti !== ''){
+        addData(gu, ti);
+        setMessage(`폼값 업데이트 됨: ${gu}, ${ti}`);
+      }
+    }}></WriteForm>
+    <pre>{message}</pre>
+    
   </>)
 }
 
-export default App
+export default App;
+
