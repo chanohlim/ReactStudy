@@ -16,8 +16,6 @@ function WriteForm(props){
         <input type="text" name="title" />
         <input type="submit" value="추가" />
     </form>
-    <div>
-    </div>
   </>)
 }
 

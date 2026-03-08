@@ -1,0 +1,17 @@
+li.backEnd {
+    /* 백엔드 관련 요소 스타일링 */
+    color: blue;
+}
+
+#backEndSub {
+    /* 백엔드 하위 제목 스타일링 */   
+    font-weight: bold;
+    font-size: 1.5em;
+}
+
+.warnings {
+    /* 경고 메시지 스타일링 */
+    color: white;
+    background-color: red;
+    font-size: 1.2em;
+}
