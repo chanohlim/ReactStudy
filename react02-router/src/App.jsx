@@ -5,6 +5,7 @@ import TopNavi from './components/TopNavi';
 import NotFound from './components/NotFound';
 import CommonLayout from './components/CommonLayout';
 import LayoutIndex from './components/LayoutIndex';
+import RouterHooks from './components/RouterHooks';
 
 function App() {
   return(<>
