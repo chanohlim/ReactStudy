@@ -3,7 +3,7 @@ import { Link, NavLink } from 'react-router-dom';
 const TopNavi = () => {
   return (
     <nav>
-      <NavLink to="/">Home</NavLink>&nbsp;
+      <NavLink to="/home">Home</NavLink>&nbsp;
       <NavLink to="/intro">인트로</NavLink>&nbsp;
       <NavLink to="/intro/router">Router관련Hook</NavLink>&nbsp;
       <Link to="/xyz">잘못된URL</Link>&nbsp;
