@@ -2,7 +2,7 @@ import {Routes, Route} from 'react-router-dom';
 
 import TopNavi from './components/TopNavi';
 import UseReducerExam from './components/UseReducerExam';
-// import UseContextExam from './components/UseContextExam';
+import UseContextExam from './components/UseContextExam';
 
 function App(){
   return(<>
@@ -10,7 +10,7 @@ function App(){
     <Routes>
       <Route path='/' element={<UseReducerExam />}></Route>
       <Route path='/use-reducer' element={<UseReducerExam />}></Route>
-      {/* <Route path='/use-context' element={<UseContextExam />}></Route> */}
+      <Route path='/use-context' element={<UseContextExam />}></Route>
     </Routes>
   </>)
 }
