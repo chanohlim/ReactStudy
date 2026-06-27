@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useDispatch, useSelector } from './lib/reactRedux.jsx';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   addDistraction,
   addDistractionType,

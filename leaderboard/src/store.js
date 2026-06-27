@@ -1,4 +1,4 @@
-import { configureStore } from './lib/reduxToolkit.js';
+import { configureStore } from '@reduxjs/toolkit';
 import distractionsReducer from './features/distractions/distractionsSlice';
 
 export const store = configureStore({
