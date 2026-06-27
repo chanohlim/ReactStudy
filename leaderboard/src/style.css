@@ -1,0 +1,262 @@
+:root {
+  color: #172033;
+  background: #0f172a;
+  font-family: Inter, Pretendard, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(59, 130, 246, 0.38), transparent 28rem),
+    radial-gradient(circle at 80% 12%, rgba(168, 85, 247, 0.3), transparent 24rem),
+    #0f172a;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.page-shell {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 48px 0;
+}
+
+.hero,
+.summary-grid article,
+.podium-card,
+.editor-panel,
+.ranking-panel {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 24px 80px rgba(2, 6, 23, 0.32);
+  backdrop-filter: blur(18px);
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 28px;
+  align-items: center;
+  padding: 44px;
+  border-radius: 34px;
+  color: #fff;
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(30, 64, 175, 0.58));
+}
+
+.eyebrow,
+.panel-title p {
+  margin: 0 0 10px;
+  color: #93c5fd;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+h1,
+h2 {
+  margin: 0;
+}
+
+h1 {
+  max-width: 720px;
+  font-size: clamp(2.6rem, 6vw, 5.4rem);
+  line-height: 0.96;
+}
+
+h2 {
+  color: #f8fafc;
+  font-size: clamp(1.4rem, 2vw, 2rem);
+}
+
+.hero-description {
+  max-width: 670px;
+  margin: 22px 0 0;
+  color: #cbd5e1;
+  font-size: 1.08rem;
+  line-height: 1.8;
+}
+
+.champion-card {
+  display: grid;
+  gap: 12px;
+  padding: 28px;
+  border-radius: 28px;
+  background: linear-gradient(135deg, #f97316, #ef4444);
+}
+
+.champion-card span,
+.champion-card small {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.champion-card strong {
+  font-size: 2.4rem;
+}
+
+.summary-grid,
+.podium {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.summary-grid article,
+.podium-card,
+.editor-panel,
+.ranking-panel {
+  border-radius: 28px;
+  background: rgba(15, 23, 42, 0.74);
+}
+
+.summary-grid article {
+  padding: 24px;
+}
+
+.summary-grid span,
+.podium-card small {
+  color: #94a3b8;
+  font-weight: 700;
+}
+
+.summary-grid strong {
+  display: block;
+  margin-top: 8px;
+  color: #fff;
+  font-size: 2rem;
+}
+
+.podium-card {
+  display: grid;
+  gap: 10px;
+  min-height: 180px;
+  padding: 26px;
+  color: #fff;
+}
+
+.rank-1 {
+  background: linear-gradient(135deg, rgba(250, 204, 21, 0.28), rgba(15, 23, 42, 0.78));
+}
+
+.rank-2 {
+  background: linear-gradient(135deg, rgba(148, 163, 184, 0.26), rgba(15, 23, 42, 0.78));
+}
+
+.rank-3 {
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.24), rgba(15, 23, 42, 0.78));
+}
+
+.medal {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 50%;
+  color: #0f172a;
+  font-weight: 900;
+  background: #f8fafc;
+}
+
+.podium-card strong {
+  font-size: 1.8rem;
+}
+
+.editor-panel,
+.ranking-panel {
+  margin-top: 22px;
+  padding: 30px;
+}
+
+.player-editor {
+  display: grid;
+  grid-template-columns: 1.3fr 0.8fr repeat(3, 1fr) auto;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.player-editor label {
+  display: grid;
+  gap: 8px;
+  color: #cbd5e1;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.player-editor input,
+.player-editor select {
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 16px;
+  padding: 13px 14px;
+  color: #f8fafc;
+  background: rgba(15, 23, 42, 0.82);
+}
+
+.player-editor button {
+  align-self: end;
+  border: 0;
+  border-radius: 16px;
+  padding: 14px 18px;
+  color: #0f172a;
+  font-weight: 900;
+  cursor: pointer;
+  background: linear-gradient(135deg, #38bdf8, #a7f3d0);
+}
+
+.table-scroller {
+  overflow-x: auto;
+  margin-top: 22px;
+}
+
+table {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+  color: #e2e8f0;
+}
+
+th,
+td {
+  padding: 18px 16px;
+  text-align: left;
+}
+
+th {
+  color: #93c5fd;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+tbody tr {
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.rank-pill {
+  display: inline-flex;
+  min-width: 52px;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 7px 11px;
+  color: #bfdbfe;
+  font-weight: 900;
+  background: rgba(59, 130, 246, 0.18);
+}
+
+@media (max-width: 920px) {
+  .hero,
+  .summary-grid,
+  .podium,
+  .player-editor {
+    grid-template-columns: 1fr;
+  }
+}
