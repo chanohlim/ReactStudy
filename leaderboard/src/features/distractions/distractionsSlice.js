@@ -60,125 +60,53 @@ const distractionsSlice = createSlice({
   reducers: {
     addDistraction: {
       reducer(state, action) {
-        const { name, type, minutes, createdAt } = action.payload;
-        const existingPerson = state.people.find((person) => normalizeName(person.name) === normalizeName(name));
-
-        if (!state.types.some((savedType) => normalizeType(savedType) === normalizeType(type))) {
-          state.types.push(type);
-        }
-
-        if (!existingPerson) {
-          state.people.push({
-            id: nanoid(),
-            name,
-            createdAt,
-            distractions: [{ id: nanoid(), type, minutes }],
-          });
-          return;
-        }
-
-        const existingDistraction = existingPerson.distractions.find((distraction) => {
-          return normalizeType(distraction.type) === normalizeType(type);
-        });
-
-        if (existingDistraction) {
-          existingDistraction.minutes += minutes;
-          return;
-        }
-
-        existingPerson.distractions.push({ id: nanoid(), type, minutes });
+        state.entries.push(action.payload);
       },
       prepare({ name, type, minutes }) {
         return {
           payload: {
-            name: name.trim(),
-            type: type.trim(),
+            id: nanoid(),
+            name,
+            type,
             minutes: Number(minutes),
             createdAt: new Date().toISOString(),
           },
         };
       },
     },
-    addDistractionType(state, action) {
-      const type = action.payload.trim();
-
-      if (!type) {
-        return;
-      }
-
-      if (!state.types.some((savedType) => normalizeType(savedType) === normalizeType(type))) {
-        state.types.push(type);
-      }
-    },
-    removePerson(state, action) {
-      state.people = state.people.filter((person) => person.id !== action.payload);
-    },
     removeDistraction(state, action) {
-      const { personId, distractionId } = action.payload;
-      const person = state.people.find((currentPerson) => currentPerson.id === personId);
-
-      if (!person) {
-        return;
-      }
-
-      person.distractions = person.distractions.filter((distraction) => distraction.id !== distractionId);
-
-      if (person.distractions.length === 0) {
-        state.people = state.people.filter((currentPerson) => currentPerson.id !== personId);
-      }
+      state.entries = state.entries.filter((entry) => entry.id !== action.payload);
     },
     clearDistractions(state) {
-      state.people = [];
+      state.entries = [];
     },
   },
 });
 
-export const {
-  addDistraction,
-  addDistractionType,
-  clearDistractions,
-  removeDistraction,
-  removePerson,
-} = distractionsSlice.actions;
+export const { addDistraction, removeDistraction, clearDistractions } = distractionsSlice.actions;
 
-export const selectDistractionTypes = (state) => state.distractions.types;
-export const selectPeople = (state) => state.distractions.people;
+export const selectEntries = (state) => state.distractions.entries;
 
-export const selectRankedPeople = (state) => {
-  return [...state.distractions.people]
-    .map((person) => ({
-      ...person,
-      totalMinutes: getTotalMinutes(person),
-      topDistraction: [...person.distractions].sort((a, b) => b.minutes - a.minutes)[0],
-    }))
-    .sort((a, b) => {
-      if (b.totalMinutes !== a.totalMinutes) {
-        return b.totalMinutes - a.totalMinutes;
-      }
-      return new Date(a.createdAt) - new Date(b.createdAt);
-    });
+export const selectRankedEntries = (state) => {
+  return [...state.distractions.entries].sort((a, b) => {
+    if (b.minutes !== a.minutes) {
+      return b.minutes - a.minutes;
+    }
+    return new Date(a.createdAt) - new Date(b.createdAt);
+  });
 };
 
 export const selectDistractionStats = (state) => {
-  const rankedPeople = selectRankedPeople(state);
-  const totalMinutes = rankedPeople.reduce((total, person) => total + person.totalMinutes, 0);
-  const distractionCount = rankedPeople.reduce((total, person) => total + person.distractions.length, 0);
-  const averageMinutes = rankedPeople.length ? Math.round(totalMinutes / rankedPeople.length) : 0;
-  const typeCounts = rankedPeople.reduce((counts, person) => {
-    person.distractions.forEach((distraction) => {
-      counts[distraction.type] = (counts[distraction.type] || 0) + distraction.minutes;
-    });
-    return counts;
-  }, {});
-  const topType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '집계 중';
+  const entries = state.distractions.entries;
+  const totalMinutes = entries.reduce((total, entry) => total + entry.minutes, 0);
+  const topEntry = selectRankedEntries(state)[0];
+  const averageMinutes = entries.length ? Math.round(totalMinutes / entries.length) : 0;
 
   return {
     totalMinutes,
     averageMinutes,
-    personCount: rankedPeople.length,
-    distractionCount,
-    topPerson: rankedPeople[0],
-    topType,
+    entryCount: entries.length,
+    topEntry,
   };
 };
 
