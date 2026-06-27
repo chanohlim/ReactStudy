@@ -1,22 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   addDistraction,
+  addDistractionType,
   clearDistractions,
   removeDistraction,
+  removePerson,
   selectDistractionStats,
-  selectRankedEntries,
+  selectDistractionTypes,
+  selectRankedPeople,
 } from './features/distractions/distractionsSlice';
-
-const distractionTypes = [
-  '유튜브 쇼츠',
-  'SNS 탐험',
-  '메신저 수다',
-  '커피 산책',
-  '간식 원정대',
-  '창밖 멍때리기',
-  '회의 중 딴생각',
-];
 
 function formatTime(minutes) {
   const hours = Math.floor(minutes / 60);
@@ -29,10 +22,47 @@ function formatTime(minutes) {
   return `${hours}시간 ${restMinutes}분`;
 }
 
+function DistractionTypeManager() {
+  const dispatch = useDispatch();
+  const types = useSelector(selectDistractionTypes);
+  const [newType, setNewType] = useState('');
+  const normalizedNewType = newType.trim().toLocaleLowerCase('ko-KR');
+  const isDuplicate = types.some((type) => type.trim().toLocaleLowerCase('ko-KR') === normalizedNewType);
+  const isDisabled = !newType.trim() || isDuplicate;
+
+  const submitType = (event) => {
+    event.preventDefault();
+
+    if (isDisabled) {
+      return;
+    }
+
+    dispatch(addDistractionType(newType));
+    setNewType('');
+  };
+
+  return (
+    <form className="type-manager" onSubmit={submitType}>
+      <label>
+        새로운 딴 짓 등록
+        <input
+          value={newType}
+          onChange={(event) => setNewType(event.target.value)}
+          placeholder="예: 탕비실 회의"
+        />
+      </label>
+      <button type="submit" disabled={isDisabled}>종류 추가</button>
+      {isDuplicate && <p className="form-hint">이미 등록된 딴 짓입니다.</p>}
+    </form>
+  );
+}
+
 function DistractionForm() {
   const dispatch = useDispatch();
-  const [form, setForm] = useState({ name: '', type: distractionTypes[0], minutes: '' });
-  const isDisabled = !form.name.trim() || !form.minutes || Number(form.minutes) <= 0;
+  const types = useSelector(selectDistractionTypes);
+  const [form, setForm] = useState({ name: '', type: types[0] || '', customType: '', minutes: '' });
+  const selectedType = form.type === 'custom' ? form.customType : form.type;
+  const isDisabled = !form.name.trim() || !selectedType.trim() || !form.minutes || Number(form.minutes) <= 0;
 
   const updateForm = (event) => {
     const { name, value } = event.target;
@@ -47,11 +77,11 @@ function DistractionForm() {
     }
 
     dispatch(addDistraction({
-      name: form.name.trim(),
-      type: form.type,
+      name: form.name,
+      type: selectedType,
       minutes: Number(form.minutes),
     }));
-    setForm({ name: '', type: distractionTypes[0], minutes: '' });
+    setForm({ name: '', type: types[0] || '', customType: '', minutes: '' });
   };
 
   return (
@@ -69,11 +99,24 @@ function DistractionForm() {
       <label>
         딴 짓 종류
         <select name="type" value={form.type} onChange={updateForm}>
-          {distractionTypes.map((type) => (
+          {types.map((type) => (
             <option key={type} value={type}>{type}</option>
           ))}
+          <option value="custom">직접 입력</option>
         </select>
       </label>
+      {form.type === 'custom' && (
+        <label>
+          직접 입력
+          <input
+            name="customType"
+            type="text"
+            value={form.customType}
+            onChange={updateForm}
+            placeholder="새 딴 짓 이름"
+          />
+        </label>
+      )}
       <label>
         시간(분)
         <input
@@ -100,25 +143,46 @@ function StatCard({ label, value, helper }) {
   );
 }
 
-function TopThree({ entries }) {
+function TopThree({ people }) {
   return (
     <section className="podium" aria-label="딴 짓 상위 3명">
-      {entries.slice(0, 3).map((entry, index) => (
-        <article key={entry.id} className={`podium-card rank-${index + 1}`}>
+      {people.slice(0, 3).map((person, index) => (
+        <article key={person.id} className={`podium-card rank-${index + 1}`}>
           <span className="rank-number">#{index + 1}</span>
-          <strong>{entry.name}</strong>
-          <p>{entry.type}</p>
-          <small>{formatTime(entry.minutes)}</small>
+          <strong>{person.name}</strong>
+          <p>{person.topDistraction.type} · {formatTime(person.topDistraction.minutes)}</p>
+          <small>총 {formatTime(person.totalMinutes)} · {person.distractions.length}종 딴 짓</small>
         </article>
       ))}
     </section>
   );
 }
 
-function LeaderboardTable({ entries }) {
+function DistractionChips({ person }) {
   const dispatch = useDispatch();
 
-  if (entries.length === 0) {
+  return (
+    <div className="chip-list" aria-label={`${person.name} 딴 짓 목록`}>
+      {person.distractions.map((distraction) => (
+        <span className="distraction-chip" key={distraction.id}>
+          {distraction.type} {formatTime(distraction.minutes)}
+          <button
+            type="button"
+            onClick={() => dispatch(removeDistraction({ personId: person.id, distractionId: distraction.id }))}
+            aria-label={`${person.name}의 ${distraction.type} 삭제`}
+          >
+            ×
+          </button>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function LeaderboardTable({ people }) {
+  const dispatch = useDispatch();
+
+  if (people.length === 0) {
     return (
       <section className="empty-panel">
         <h2>아직 등록된 딴 짓이 없습니다</h2>
@@ -139,23 +203,21 @@ function LeaderboardTable({ entries }) {
             <tr>
               <th>순위</th>
               <th>이름</th>
-              <th>딴 짓 종류</th>
-              <th>시간</th>
-              <th>등록 시각</th>
+              <th>딴 짓 내역</th>
+              <th>총 시간</th>
               <th>관리</th>
             </tr>
           </thead>
           <tbody>
-            {entries.map((entry, index) => (
-              <tr key={entry.id}>
+            {people.map((person, index) => (
+              <tr key={person.id}>
                 <td><span className="rank-pill">#{index + 1}</span></td>
-                <td>{entry.name}</td>
-                <td>{entry.type}</td>
-                <td>{formatTime(entry.minutes)}</td>
-                <td>{new Date(entry.createdAt).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })}</td>
+                <td>{person.name}</td>
+                <td><DistractionChips person={person} /></td>
+                <td>{formatTime(person.totalMinutes)}</td>
                 <td>
-                  <button className="delete-button" onClick={() => dispatch(removeDistraction(entry.id))}>
-                    삭제
+                  <button className="delete-button" onClick={() => dispatch(removePerson(person.id))}>
+                    사람 삭제
                   </button>
                 </td>
               </tr>
@@ -169,16 +231,8 @@ function LeaderboardTable({ entries }) {
 
 function App() {
   const dispatch = useDispatch();
-  const rankedEntries = useSelector(selectRankedEntries);
+  const rankedPeople = useSelector(selectRankedPeople);
   const stats = useSelector(selectDistractionStats);
-  const mostPopularType = useMemo(() => {
-    const typeCounts = rankedEntries.reduce((counts, entry) => {
-      counts[entry.type] = (counts[entry.type] || 0) + 1;
-      return counts;
-    }, {});
-
-    return Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || '집계 중';
-  }, [rankedEntries]);
 
   return (
     <main className="app-shell">
@@ -187,21 +241,21 @@ function App() {
           <p className="eyebrow">팀장님 한숨 예약 서비스</p>
           <h1>딴 짓 리더보드</h1>
           <p className="hero-copy">
-            이름, 딴 짓 종류, 시간을 입력하면 누가 가장 열심히 딴 짓을 했는지 즉시 순위로 보여줍니다.
-            React와 Redux Toolkit으로 상태를 관리합니다.
+            같은 이름으로 기록하면 한 사람의 딴 짓 내역에 누적됩니다. 같은 딴 짓은 시간이 더해지고,
+            처음 하는 딴 짓은 새 항목으로 추가됩니다.
           </p>
         </div>
         <aside className="leader-card">
           <span>현재 딴짓왕</span>
-          <strong>{stats.topEntry?.name || '대기 중'}</strong>
-          <small>{stats.topEntry ? `${stats.topEntry.type} · ${formatTime(stats.topEntry.minutes)}` : '기록을 등록해 주세요'}</small>
+          <strong>{stats.topPerson?.name || '대기 중'}</strong>
+          <small>{stats.topPerson ? `총 ${formatTime(stats.topPerson.totalMinutes)}` : '기록을 등록해 주세요'}</small>
         </aside>
       </section>
 
       <section className="stats-grid" aria-label="딴 짓 요약">
         <StatCard label="총 딴 짓 시간" value={formatTime(stats.totalMinutes)} helper="누적 시간" />
-        <StatCard label="평균 딴 짓" value={formatTime(stats.averageMinutes)} helper={`${stats.entryCount}건 기준`} />
-        <StatCard label="인기 딴 짓" value={mostPopularType} helper="가장 자주 등록됨" />
+        <StatCard label="평균 딴 짓" value={formatTime(stats.averageMinutes)} helper={`${stats.personCount}명 기준`} />
+        <StatCard label="인기 딴 짓" value={stats.topType} helper={`${stats.distractionCount}개 항목 집계`} />
       </section>
 
       <section className="form-panel">
@@ -210,16 +264,17 @@ function App() {
           <h2>딴 짓 기록 추가</h2>
         </div>
         <DistractionForm />
+        <DistractionTypeManager />
       </section>
 
-      <TopThree entries={rankedEntries} />
+      <TopThree people={rankedPeople} />
 
       <div className="toolbar">
-        <p>점수가 아니라 시간으로 승부합니다. 오래 딴 짓할수록 위로 올라갑니다.</p>
+        <p>동명이인은 같은 사람으로 합산됩니다. 이름을 정확히 입력하면 딴 짓 이력이 자동으로 정리됩니다.</p>
         <button type="button" onClick={() => dispatch(clearDistractions())}>전체 초기화</button>
       </div>
 
-      <LeaderboardTable entries={rankedEntries} />
+      <LeaderboardTable people={rankedPeople} />
     </main>
   );
 }

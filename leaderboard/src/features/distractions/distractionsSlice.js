@@ -1,12 +1,57 @@
 import { createSlice, nanoid } from '@reduxjs/toolkit';
 
 const initialState = {
-  entries: [
-    { id: 'seed-1', name: '김대리', type: '유튜브 쇼츠', minutes: 132, createdAt: '2026-06-27T09:00:00.000Z' },
-    { id: 'seed-2', name: '박사원', type: '간식 원정대', minutes: 96, createdAt: '2026-06-27T09:05:00.000Z' },
-    { id: 'seed-3', name: '이주임', type: '메신저 수다', minutes: 74, createdAt: '2026-06-27T09:10:00.000Z' },
-    { id: 'seed-4', name: '최인턴', type: '창밖 멍때리기', minutes: 51, createdAt: '2026-06-27T09:15:00.000Z' },
+  types: [
+    '유튜브 쇼츠',
+    'SNS 탐험',
+    '메신저 수다',
+    '커피 산책',
+    '간식 원정대',
+    '창밖 멍때리기',
+    '회의 중 딴생각',
   ],
+  people: [
+    {
+      id: 'person-1',
+      name: '김대리',
+      createdAt: '2026-06-27T09:00:00.000Z',
+      distractions: [
+        { id: 'seed-1', type: '유튜브 쇼츠', minutes: 92 },
+        { id: 'seed-2', type: '커피 산책', minutes: 40 },
+      ],
+    },
+    {
+      id: 'person-2',
+      name: '박사원',
+      createdAt: '2026-06-27T09:05:00.000Z',
+      distractions: [
+        { id: 'seed-3', type: '간식 원정대', minutes: 96 },
+      ],
+    },
+    {
+      id: 'person-3',
+      name: '이주임',
+      createdAt: '2026-06-27T09:10:00.000Z',
+      distractions: [
+        { id: 'seed-4', type: '메신저 수다', minutes: 74 },
+      ],
+    },
+    {
+      id: 'person-4',
+      name: '최인턴',
+      createdAt: '2026-06-27T09:15:00.000Z',
+      distractions: [
+        { id: 'seed-5', type: '창밖 멍때리기', minutes: 51 },
+      ],
+    },
+  ],
+};
+
+const normalizeName = (name) => name.trim().toLocaleLowerCase('ko-KR');
+const normalizeType = (type) => type.trim().toLocaleLowerCase('ko-KR');
+
+const getTotalMinutes = (person) => {
+  return person.distractions.reduce((total, distraction) => total + distraction.minutes, 0);
 };
 
 const distractionsSlice = createSlice({
