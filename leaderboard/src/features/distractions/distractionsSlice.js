@@ -111,3 +111,4 @@ export const selectDistractionStats = (state) => {
 };
 
 export default distractionsSlice.reducer;
+export const selectDistractionTypes = (state) => state.distractions.types;
