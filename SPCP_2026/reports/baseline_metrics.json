@@ -1,0 +1,14 @@
+{
+  "overall": 0.6458,
+  "n": 120,
+  "axes": {
+    "focal": 0.8833,
+    "target": 0.8,
+    "control": 0.7,
+    "content_scope": 0.5008,
+    "policy": 0.5532,
+    "plan": 0.5986,
+    "semantic_response": 0.0,
+    "counterfactual": 0.0
+  }
+}

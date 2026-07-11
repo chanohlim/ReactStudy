@@ -1,0 +1,25 @@
+# SCPC generated evaluation artifacts
+SPCP_2026/reports/runs/*.json
+SPCP_2026/reports/**/*_raw.json
+SPCP_2026/reports/**/*_predictions.json
+SPCP_2026/reports/**/*_trace.json
+SPCP_2026/reports/**/*_full.json
+SPCP_2026/reports/**/*before_after*.json
+SPCP_2026/reports/**/*ablation_raw*.json
+SPCP_2026/screening_output*
+reports/runs/*.json
+reports/**/*_raw.json
+reports/**/*_predictions.json
+reports/**/*_trace.json
+reports/**/*_full.json
+reports/**/*before_after*.json
+reports/**/*ablation_raw*.json
+screening_output*
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Node dependencies
+node_modules/
