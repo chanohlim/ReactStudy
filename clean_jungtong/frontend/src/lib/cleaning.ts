@@ -1,0 +1,2 @@
+const days=['월','화','수','목','금','토','일'];export function describeRoomCleaning(freq:number,weekdays:number[]){if(freq===0)return '호실 청소를 진행하지 않습니다.';if(freq===7)return '매일 호실 청소를 진행합니다.';const names=weekdays.sort((a,b)=>a-b).map((d)=>`${days[d]}요일`);return `매주 ${names.join('과 ')}에 호실 청소를 진행합니다.`}
+export function isValidCleaningSetting(freq:number,weekdays:number[]){if(freq===0)return weekdays.length===0;if(freq===7)return weekdays.length===7;return freq>=1&&freq<=6&&weekdays.length===freq}

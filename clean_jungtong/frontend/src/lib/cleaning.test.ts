@@ -1,0 +1,2 @@
+import {describe,expect,it} from 'vitest';import {describeRoomCleaning,isValidCleaningSetting} from './cleaning';
+describe('cleaning settings',()=>{it('validates frequency weekdays',()=>{expect(isValidCleaningSetting(2,[1,5])).toBe(true);expect(isValidCleaningSetting(2,[1])).toBe(false);expect(isValidCleaningSetting(7,[0,1,2,3,4,5,6])).toBe(true)});it('describes Korean preview',()=>{expect(describeRoomCleaning(2,[1,5])).toContain('화요일과 토요일')})});
