@@ -20,6 +20,3 @@ screening_output*
 __pycache__/
 *.py[cod]
 .pytest_cache/
-
-# Node dependencies
-node_modules/
