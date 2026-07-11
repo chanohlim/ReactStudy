@@ -1,13 +1,13 @@
 {
-  "overall": 0.5449,
+  "overall": 0.0882,
   "n": 120,
   "axes": {
-    "focal": 0.8833,
-    "target": 0.8,
-    "control": 0.7,
-    "content_scope": 0.3466,
-    "policy": 0.3555,
-    "plan": 0.3265,
+    "focal": 0.2917,
+    "target": 0.1167,
+    "control": 0.0833,
+    "content_scope": 0.0196,
+    "policy": 0.0087,
+    "plan": 0.0126,
     "semantic_response": 0.0,
     "counterfactual": 0.0
   }

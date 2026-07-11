@@ -3,149 +3,11 @@ from __future__ import annotations
 import csv
 import json
 import re
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 SUBMISSION_SCHEMA = "scpc.final.answer.v1"
 FIXED_SLM_ID = "scpc-final-fixed-slm-local-facade"
-
-@dataclass
-class FocalCandidate:
-    object_id: str
-    source: str
-    evidence: list[str]
-    priority: int
-    confidence: float | None = None
-    selected_by: str | None = None
-
-    def as_trace(self) -> dict[str, Any]:
-        return {
-            "object_id": self.object_id,
-            "source": self.source,
-            "evidence": self.evidence,
-            "priority": self.priority,
-            "confidence": self.confidence,
-            "selected_by": self.selected_by,
-        }
-
-@dataclass
-class TargetCandidate:
-    value: str
-    category: str
-    source: str
-    evidence: list[str]
-    priority: int
-    confidence: float | None = None
-    selected_by: str | None = None
-    invalidated: bool = False
-    invalidation_reason: str | None = None
-
-    def as_trace(self) -> dict[str, Any]:
-        return {
-            "value": self.value,
-            "category": self.category,
-            "source": self.source,
-            "evidence": self.evidence,
-            "priority": self.priority,
-            "confidence": self.confidence,
-            "selected_by": self.selected_by,
-            "invalidated": self.invalidated,
-            "invalidation_reason": self.invalidation_reason,
-        }
-
-@dataclass
-class ControlContext:
-    focal_id: str
-    target: str
-    record_types: set[str]
-    risk_signals: set[str]
-    violation_signals: set[str]
-    target_resolved: bool
-    target_ambiguous: bool
-    confirmation_signal: bool
-    redaction_signal: bool
-    sensitive_fields: set[str]
-    removable_sensitive_fields: set[str]
-    safe_reduction_possible: bool
-    external_dispatch_requested: bool
-    local_update_requested: bool
-    dispatch_cancelled: bool
-    action_blocked: bool
-    user_choice_required: bool
-    state_changes: list[str]
-    active_signals: list[str]
-    superseded_signals: list[str]
-
-    def as_trace(self) -> dict[str, Any]:
-        return {
-            "focal_id": self.focal_id,
-            "target": self.target,
-            "record_types": sorted(self.record_types),
-            "risk_signals": sorted(self.risk_signals),
-            "violation_signals": sorted(self.violation_signals),
-            "target_resolved": self.target_resolved,
-            "target_ambiguous": self.target_ambiguous,
-            "confirmation_signal": self.confirmation_signal,
-            "redaction_signal": self.redaction_signal,
-            "sensitive_fields": sorted(self.sensitive_fields),
-            "removable_sensitive_fields": sorted(self.removable_sensitive_fields),
-            "safe_reduction_possible": self.safe_reduction_possible,
-            "external_dispatch_requested": self.external_dispatch_requested,
-            "local_update_requested": self.local_update_requested,
-            "dispatch_cancelled": self.dispatch_cancelled,
-            "action_blocked": self.action_blocked,
-            "user_choice_required": self.user_choice_required,
-            "state_changes": self.state_changes,
-            "active_signals": self.active_signals,
-            "superseded_signals": self.superseded_signals,
-        }
-
-@dataclass
-class ScopeContext:
-    focal_id: str
-    target: str
-    control: str
-    focal_type: str | None = None
-    target_category: str | None = None
-    local_update: bool = False
-    external_dispatch: bool = False
-    confirmation_pending: bool = False
-    blocked: bool = False
-    sensitive_fields: set[str] = field(default_factory=set)
-    removable_sensitive_fields: set[str] = field(default_factory=set)
-    non_removable_sensitive_fields: set[str] = field(default_factory=set)
-    requested_fields: set[str] = field(default_factory=set)
-    available_fields: set[str] = field(default_factory=set)
-    summary_requested: bool = False
-    raw_requested: bool = False
-    status_update_only: bool = False
-    scope_boundary_signals: set[str] = field(default_factory=set)
-    safe_redaction_possible: bool = False
-
-    def as_trace(self) -> dict[str, Any]:
-        return {
-            "focal_id": self.focal_id,
-            "target": self.target,
-            "control": self.control,
-            "focal_type": self.focal_type,
-            "target_category": self.target_category,
-            "local_update": self.local_update,
-            "external_dispatch": self.external_dispatch,
-            "confirmation_pending": self.confirmation_pending,
-            "blocked": self.blocked,
-            "sensitive_fields": sorted(self.sensitive_fields),
-            "removable_sensitive_fields": sorted(self.removable_sensitive_fields),
-            "non_removable_sensitive_fields": sorted(self.non_removable_sensitive_fields),
-            "requested_fields": sorted(self.requested_fields),
-            "available_fields": sorted(self.available_fields),
-            "summary_requested": self.summary_requested,
-            "raw_requested": self.raw_requested,
-            "status_update_only": self.status_update_only,
-            "scope_boundary_signals": sorted(self.scope_boundary_signals),
-            "safe_redaction_possible": self.safe_redaction_possible,
-        }
-
 class FixedSLMClient:
     model_id = FIXED_SLM_ID
 
@@ -212,19 +74,6 @@ def text_of(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True)
 
 
-def field_name(value: Any) -> str:
-    name = str(value)
-    aliases = {
-        "amount": "numeric_value",
-        "rrn": "identifier",
-        "resident_id": "identifier",
-        "card_number": "payment",
-        "doctor_note": "health",
-        "body": "summary",
-    }
-    return aliases.get(name, name)
-
-
 def object_text(obj: dict[str, Any]) -> str:
     attrs = obj.get("attrs") or {}
     return " ".join([
@@ -235,30 +84,6 @@ def object_text(obj: dict[str, Any]) -> str:
 
 
 class FinalHarness:
-    enable_focal_direct_record = True
-    enable_focal_structured_chain = True
-    enable_focal_history_ref = True
-    enable_focal_prompt_overlap = True
-    enable_target_local_override = True
-    enable_target_changed_after_turn = True
-    enable_target_memory_recall = True
-    enable_target_current_resolved = True
-    enable_target_user_confirmation = True
-    enable_target_history_fallback = True
-    enable_target_focal_attrs = True
-    enable_control_blocking = True
-    enable_control_user_choice = True
-    enable_control_safe_amend = True
-    enable_control_local_precedence = True
-    enable_control_fixed_slm = True
-    enable_scope_local_status_only = True
-    enable_scope_redacted = True
-    enable_scope_summary = True
-    enable_scope_none = True
-    enable_scope_raw = True
-    enable_scope_confirmation = True
-    enable_scope_fixed_slm = True
-
     def __init__(self) -> None:
         self.slm = FixedSLMClient()
         self.memory: dict[str, Any] = {}
@@ -280,10 +105,10 @@ class FinalHarness:
         policy = self.build_policy(task, focal, control, evidence)
         plan_events = self.build_plan_events(task, focal_id, target, control, content_scope, policy)
         self.last_decision_trace = {
-            "focal": getattr(self, "last_focal_trace", {"selected": focal_id}),
-            "target": getattr(self, "last_target_trace", {"selected": target}),
-            "control": getattr(self, "last_control_trace", {"selected": control}),
-            "content_scope": getattr(self, "last_content_scope_trace", {"mode": content_scope.get("mode"), "requires_user_confirmation": content_scope.get("requires_user_confirmation")}),
+            "focal": {"rule": "record_object_id > visible_history_ref_code > prompt_attr_overlap", "selected": focal_id},
+            "target": {"rule": "persistent_memory_write > resolved_target > focal_attrs > session_last_target > user", "selected": target},
+            "control": {"rule": "security/consent hold > ambiguity ask > redaction/policy amend > proceed", "selected": control, "evidence": evidence},
+            "content_scope": {"mode": content_scope.get("mode"), "requires_user_confirmation": content_scope.get("requires_user_confirmation")},
             "policy": {"risk_flags": policy.get("risk_flags", []), "violations": policy.get("violations", [])},
         }
 
@@ -315,659 +140,93 @@ class FinalHarness:
         session["last_evidence"] = evidence
 
     def choose_focal(self, task: dict[str, Any], session: dict[str, Any], evidence: dict[str, Any]) -> dict[str, Any]:
-        context = self.normalize_focal_context(task, session)
-        candidates = self.collect_focal_candidates(context)
-        selected = self.rank_and_select_focal(candidates, context)
-        self.last_focal_trace = {
-            "candidates": [c.as_trace() for c in candidates],
-            "selected": selected.object_id if selected else "",
-            "selected_by": selected.selected_by if selected else "F-00_no_object",
-            "evidence": selected.evidence if selected else [],
-        }
-        if selected and selected.object_id in context["object_by_id"]:
-            return context["object_by_id"][selected.object_id]
-        return context["objects"][0] if context["objects"] else {}
-
-    def normalize_focal_context(self, task: dict[str, Any], session: dict[str, Any]) -> dict[str, Any]:
         objects = objects_of(task)
         records = records_of(task)
+        if not objects:
+            return {}
+
+        # 1) record 값이 object id를 직접 가리키면 우선합니다.
         object_by_id = {str(o.get("id")): o for o in objects}
-        ref_to_object_id = {
-            str((o.get("attrs") or {}).get("ref_code")): str(o.get("id"))
-            for o in objects
-            if (o.get("attrs") or {}).get("ref_code")
-        }
-        return {
-            "task": task,
-            "session": session,
-            "objects": objects,
-            "records": records,
-            "record_map": record_map(records),
-            "object_by_id": object_by_id,
-            "ref_to_object_id": ref_to_object_id,
-            "history_text": " ".join(text_of(item) for item in task.get("visible_history", [])).lower(),
-            "prompt_tokens": {
-                tok for tok in re.findall(r"[A-Za-z0-9가-힣_]+", str(task.get("prompt", "")).lower()) if len(tok) >= 2
-            },
-        }
+        for record in reversed(records):
+            value = record.get("value")
+            candidates: list[str] = []
+            if isinstance(value, str):
+                candidates.append(value)
+            elif isinstance(value, dict):
+                candidates.extend(str(v) for v in value.values() if isinstance(v, str))
+            for candidate in candidates:
+                if candidate in object_by_id:
+                    return object_by_id[candidate]
 
-    def collect_focal_candidates(self, context: dict[str, Any]) -> list[FocalCandidate]:
-        candidates: list[FocalCandidate] = []
-        seen: set[tuple[str, str]] = set()
+        # 2) visible_history의 WM-code와 object ref_code가 맞으면 활용합니다.
+        history_text = " ".join(text_of(item) for item in task.get("visible_history", [])).lower()
+        for obj in objects:
+            ref_code = str((obj.get("attrs") or {}).get("ref_code") or "").lower()
+            if ref_code and ref_code in history_text:
+                return obj
 
-        def add(candidate: FocalCandidate) -> None:
-            if candidate.object_id and candidate.object_id in context["object_by_id"]:
-                key = (candidate.object_id, candidate.source)
-                if key not in seen:
-                    seen.add(key)
-                    candidates.append(candidate)
-
-        if self.enable_focal_direct_record:
-            for record in reversed(context["records"]):
-                value = record.get("value")
-                values: list[str] = []
-                if isinstance(value, str):
-                    values.append(value)
-                elif isinstance(value, dict):
-                    values.extend(str(v) for v in value.values() if isinstance(v, str))
-                for value_text in values:
-                    if value_text in context["object_by_id"]:
-                        add(FocalCandidate(value_text, "direct_record_object_id", [f"{record.get('type')}->{value_text}"], 95, 1.0, "F-01_direct_record_object_id"))
-
-        if self.enable_focal_structured_chain:
-            structured = self.resolve_structured_focal_reference(context)
-            if structured:
-                add(structured)
-
-        if self.enable_focal_history_ref:
-            for obj in context["objects"]:
-                ref_code = str((obj.get("attrs") or {}).get("ref_code") or "").lower()
-                if ref_code and ref_code in context["history_text"]:
-                    add(FocalCandidate(str(obj.get("id")), "visible_history_ref_code", [f"history contains ref_code={ref_code}"], 50, 0.70, "F-04_history_ref_code_fallback"))
-
-        if self.enable_focal_prompt_overlap:
-            for obj in context["objects"]:
-                obj_text = object_text(obj)
-                score = sum(1 for tok in context["prompt_tokens"] if tok in obj_text)
-                confidence = score / max(1, len(context["prompt_tokens"]))
-                add(FocalCandidate(str(obj.get("id")), "prompt_attr_overlap", [f"overlap_tokens={score}"], 10 + score, confidence, "F-05_prompt_overlap_fallback"))
-
-        return candidates
-
-    def resolve_structured_focal_reference(self, context: dict[str, Any]) -> FocalCandidate | None:
-        rec = context["record_map"]
-        trace = rec.get("focal_resolution_trace")
-        marker_refs = rec.get("focal_marker_refs")
-        if not isinstance(trace, dict) or not isinstance(marker_refs, dict):
-            return None
-        phase_to_marker = trace.get("phase_to_marker")
-        marker_to_ref = marker_refs.get("marker_to_ref")
-        if not isinstance(phase_to_marker, dict) or not isinstance(marker_to_ref, dict):
-            return None
-
-        latest_phase = trace.get("latest_phase")
-        evidence: list[str] = []
-        if isinstance(latest_phase, str) and latest_phase:
-            evidence.append(f"latest_phase={latest_phase}")
-        else:
-            route_value = rec.get(str(trace.get("phase_source") or "route_binding_order"))
-            rules = trace.get("latest_phase_rule")
-            if isinstance(route_value, str) and isinstance(rules, dict):
-                latest_phase = rules.get(route_value) or rules.get("fallback")
-                evidence.append(f"{trace.get('phase_source') or 'route_binding_order'}={route_value}")
-                evidence.append(f"latest_phase_rule->{latest_phase}")
-        if not isinstance(latest_phase, str) or latest_phase not in phase_to_marker:
-            return None
-
-        marker = phase_to_marker.get(latest_phase)
-        if not isinstance(marker, str) or marker not in marker_to_ref:
-            return None
-        ref_code = marker_to_ref.get(marker)
-        if not isinstance(ref_code, str):
-            return None
-        object_id = context["ref_to_object_id"].get(ref_code)
-        if not object_id:
-            return None
-        evidence.extend([f"{latest_phase}->{marker}", f"{marker}->{ref_code}", f"{ref_code}->{object_id}"])
-        return FocalCandidate(object_id, "structured_reference_chain", evidence, 100, 1.0, "F-02_structured_latest_phase_chain")
-
-    def rank_and_select_focal(self, candidates: list[FocalCandidate], context: dict[str, Any]) -> FocalCandidate | None:
-        if not candidates:
-            return None
-        return sorted(candidates, key=lambda c: (-c.priority, -(c.confidence or 0.0), c.object_id, c.source))[0]
+        # 3) prompt와 attrs 텍스트가 많이 겹치는 object를 고릅니다.
+        prompt_tokens = {tok for tok in re.findall(r"[A-Za-z0-9가-힣_]+", str(task.get("prompt", "")).lower()) if len(tok) >= 2}
+        best = objects[0]
+        best_score = -1
+        for obj in objects:
+            obj_text = object_text(obj)
+            score = sum(1 for tok in prompt_tokens if tok in obj_text)
+            if score > best_score:
+                best = obj
+                best_score = score
+        return best
 
     def infer_target(self, task: dict[str, Any], focal: dict[str, Any], session: dict[str, Any], evidence: dict[str, Any]) -> str:
-        context = self.normalize_target_context(task, focal, session)
-        candidates = self.collect_target_candidates(context)
-        candidates = self.validate_target_consistency(context, candidates)
-        selected = self.rank_and_select_target(candidates, context)
-        self.last_target_trace = {
-            "candidates": [c.as_trace() for c in candidates],
-            "selected": selected.value if selected else "user",
-            "selected_by": selected.selected_by if selected else "T-00_safe_user_fallback",
-            "evidence": selected.evidence if selected else ["no target evidence"],
-            "invalidated": [c.as_trace() for c in candidates if c.invalidated],
-        }
-        return selected.value if selected else "user"
+        rec = record_map(records_of(task))
+        attrs = focal.get("attrs") or {}
 
-    def normalize_target_context(self, task: dict[str, Any], focal: dict[str, Any], session: dict[str, Any]) -> dict[str, Any]:
-        records = records_of(task)
-        prompt_text = str(task.get("prompt", ""))
-        return {
-            "task": task,
-            "focal": focal,
-            "session": session,
-            "records": records,
-            "record_map": record_map(records),
-            "prompt_lower": prompt_text.lower(),
-            "history_lower": " ".join(text_of(item) for item in task.get("visible_history", [])).lower(),
-            "focal_attrs": focal.get("attrs") or {},
-        }
-
-    def collect_target_candidates(self, context: dict[str, Any]) -> list[TargetCandidate]:
-        candidates: list[TargetCandidate] = []
-        seen: set[tuple[str, str]] = set()
-
-        def add(candidate: TargetCandidate) -> None:
-            if candidate.value:
-                key = (candidate.value, candidate.source)
-                if key not in seen:
-                    seen.add(key)
-                    candidates.append(candidate)
-
-        rec = context["record_map"]
-        attrs = context["focal_attrs"]
+        # TODO: target은 항상 사람 이름만은 아닙니다. 앱, 채널, 장치, memory_store, user 확인도 target이 될 수 있습니다.
         if "persistent_memory_write" in rec:
-            add(TargetCandidate("memory_store", "memory_store", "persistent_memory_write", ["record.type=persistent_memory_write"], 100, 1.0, "T-01_persistent_memory_write_destination"))
-        if self.enable_target_local_override and self.has_local_only_target_signal(context):
-            add(TargetCandidate("memory_store", "memory_store", "local_internal_update_override", ["latest instruction requests local/internal state update instead of dispatch"], 98, 0.95, "T-02_local_internal_update_overrides_dispatch"))
-        if self.enable_target_changed_after_turn:
-            changed = rec.get("target_changed_after_turn")
-            if isinstance(changed, str) and changed:
-                add(TargetCandidate(changed, self.classify_target_value(changed), "target_changed_after_turn", [f"target_changed_after_turn={changed}"], 96, 1.0, "T-03_latest_target_change_overrides_stale_route"))
-        if self.enable_target_user_confirmation and self.has_user_confirmation_target_signal(context):
-            add(TargetCandidate("user", "user", "confirmation_or_blocking_boundary", ["current records/prompt require user confirmation before selecting destination"], 94, 0.90, "T-04_confirmation_or_block_targets_user"))
-        if self.enable_target_memory_recall:
-            for candidate in self.resolve_memory_target_candidates(context):
-                add(candidate)
-        if self.enable_target_current_resolved:
-            resolved = rec.get("resolved_target")
-            if isinstance(resolved, dict):
-                for key in ("target", "route", "value", "name", "recipient"):
-                    if resolved.get(key):
-                        value = str(resolved[key])
-                        add(TargetCandidate(value, self.classify_target_value(value), "current_resolved_target", [f"resolved_target.{key}={value}"], 80, 0.85, "T-05_current_structured_resolved_target"))
-                        break
-            elif isinstance(resolved, str) and resolved:
-                add(TargetCandidate(resolved, self.classify_target_value(resolved), "current_resolved_target", [f"resolved_target={resolved}"], 80, 0.85, "T-05_current_structured_resolved_target"))
-        if self.enable_target_focal_attrs:
-            for key in ("recipient", "target", "channel", "app", "merchant", "name"):
-                if attrs.get(key):
-                    value = str(attrs[key])
-                    add(TargetCandidate(value, self.classify_target_value(value), f"focal_attr_{key}", [f"focal.attrs.{key}={value}"], 45, 0.50, "T-08_focal_attribute_fallback"))
-                    break
-        if self.enable_target_history_fallback and context["session"].get("last_target"):
-            value = str(context["session"]["last_target"])
-            add(TargetCandidate(value, self.classify_target_value(value), "session_last_target", [f"session.last_target={value}"], 30, 0.35, "T-09_session_target_fallback"))
-        add(TargetCandidate("user", "user", "safe_fallback", ["default target when destination evidence is missing"], 1, 0.10, "T-10_safe_user_fallback"))
-        return candidates
-
-    def has_local_only_target_signal(self, context: dict[str, Any]) -> bool:
-        prompt = context["prompt_lower"]
-        records_text = " ".join(f"{r.get('type')}={text_of(r.get('value'))}" for r in context["records"]).lower()
-        local_tokens = ["memory_store", "local_update_only", "local_update", "internal update", "내부 상태", "기기 내부", "기기 안", "로컬 상태", "상태값", "상태 기록"]
-        cancel_dispatch_tokens = ["공유하지", "보내지 말", "바깥으로 보내지", "전달 대신", "전달하지", "보내는 작업은 취소", "외부 공유가 아니라"]
-        text = prompt + " " + records_text
-        return any(tok in text for tok in local_tokens) and (any(tok in text for tok in cancel_dispatch_tokens) or "persistent_memory_write" in context["record_map"])
-
-    def has_user_confirmation_target_signal(self, context: dict[str, Any]) -> bool:
-        rec = context["record_map"]
-        prompt = context["prompt_lower"]
-        boundary = str(rec.get("share_boundary_update") or "").lower()
-        authority = str(rec.get("dispatch_authority_check") or "").lower()
-        ambiguous = "ambiguous_target" in rec or "duration_ambiguous" in rec
-        explicit_user_confirmation_words = ["사용자에게 먼저 확인", "누구에게", "어떤 범위", "다시 확인하라는", "아직 확인되지", "확인 전에는 처리하지", "물어"]
-        blocking_words = ["멈춰", "막아야", "실행하면 안", "허용 근거", "과거 승인에 기대면 안", "전제가 사라"]
-        requires_confirmation = ambiguous and any(word in prompt for word in explicit_user_confirmation_words)
-        route_unbound = any(x in authority for x in ["incomplete", "pending"]) or "blocked_until_binding" in boundary
-        blocking = any(word in prompt for word in blocking_words)
-        return requires_confirmation or (route_unbound and any(word in prompt for word in explicit_user_confirmation_words)) or blocking
-
-    def resolve_memory_target_candidates(self, context: dict[str, Any]) -> list[TargetCandidate]:
-        rec = context["record_map"]
-        recall = rec.get("persistent_memory_recall")
-        if not isinstance(recall, dict):
-            return []
-        memory_key = str(recall.get("memory_key") or "")
-        person = str(recall.get("person") or "")
-        memory = self.memory.get(memory_key) or self.memory.get(person) or {}
-        if not isinstance(memory, dict):
-            return []
-        prompt = context["prompt_lower"]
-        attrs = context["focal_attrs"]
-        out: list[TargetCandidate] = []
-
-        def add_from(mem_key: str, reason: str, priority: int, rule: str) -> None:
-            value = memory.get(mem_key)
-            if value:
-                out.append(TargetCandidate(str(value), self.classify_target_value(str(value)), f"memory_recall_{mem_key}", [f"persistent_memory_recall.memory_key={memory_key}", f"memory.{mem_key}={value}", reason], priority, 0.80, rule))
-
-        if context["focal"].get("type") == "iot_routine" or "조명" in prompt or "light" in text_of(attrs.get("actions")).lower():
-            add_from("dusk_room", "iot/light routine uses stored room as device target", 92, "T-06_memory_recall_domain_target")
-        if any(word in prompt for word in ["검진", "점검", "병원", "센터", "건강"]):
-            add_from("health_channel", "health/checkup follow-up uses stored health channel", 91, "T-06_memory_recall_domain_target")
-        if any(word in prompt for word in ["회사 기본", "기업", "규정"]) or rec.get("enterprise_policy_recall"):
-            add_from("approval_channel", "enterprise policy recall uses approval/review channel", 91, "T-06_memory_recall_domain_target")
-        if any(word in prompt for word in ["지난번 성공", "성공한 작업", "같은 방식"]):
-            add_from("last_success_target", "prior-success route recall uses last successful target", 90, "T-06_memory_recall_domain_target")
-        if any(word in prompt for word in ["생일", "취향", "선호", "쿠폰", "선물"]):
-            add_from("preferred_channel", "personal preference follow-up uses stored preferred channel", 88, "T-06_memory_recall_domain_target")
-        return out
-
-    def classify_target_value(self, value: str) -> str:
-        if value == "user":
-            return "user"
-        if value == "memory_store":
             return "memory_store"
-        if value.endswith("_room") or value in {"living_room", "entryway", "bedroom", "study"}:
-            return "space_or_channel"
-        if value.endswith("_portal") or value.endswith("_sync") or value in {"location_share"}:
-            return "app"
-        if value.endswith("_review") or value.endswith("_vendor") or value.endswith("_coach") or value.endswith("_dm") or value in {"caregiver", "project_room", "family_room", "vendor_alpha"}:
-            return "recipient_or_channel"
-        return "identifier"
 
-    def validate_target_consistency(self, context: dict[str, Any], candidates: list[TargetCandidate]) -> list[TargetCandidate]:
-        focal_id = str(context["focal"].get("id") or "")
-        for candidate in candidates:
-            if candidate.value == focal_id:
-                candidate.invalidated = True
-                candidate.invalidation_reason = "target must be destination identifier, not focal object id"
-            if candidate.source.startswith("focal_attr_") and any(
-                other.source in {"current_resolved_target", "target_changed_after_turn", "local_internal_update_override", "confirmation_or_blocking_boundary"}
-                and not other.invalidated
-                and other.priority > candidate.priority
-                for other in candidates
-            ):
-                candidate.invalidated = True
-                candidate.invalidation_reason = "focal attribute is fallback only when stronger current target evidence is absent"
-        return candidates
+        resolved = rec.get("resolved_target")
+        if isinstance(resolved, dict):
+            for key in ("target", "route", "value", "name", "recipient"):
+                if resolved.get(key):
+                    return str(resolved[key])
+        if isinstance(resolved, str) and resolved:
+            return resolved
 
-    def rank_and_select_target(self, candidates: list[TargetCandidate], context: dict[str, Any]) -> TargetCandidate | None:
-        valid = [c for c in candidates if not c.invalidated]
-        if not valid:
-            return None
-        return sorted(valid, key=lambda c: (-c.priority, -(c.confidence or 0.0), c.value, c.source))[0]
+        for key in ("recipient", "target", "channel", "app", "merchant", "name"):
+            if attrs.get(key):
+                return str(attrs[key])
+        return str(session.get("last_target") or "user")
 
     def decide_control(self, task: dict[str, Any], focal: dict[str, Any], target: str, evidence: dict[str, Any]) -> str:
-        context = self.normalize_control_context(task, focal, target, evidence)
-        selected, selected_by, decision_path = self.apply_control_decision_table(context)
-        self.last_control_trace = {
-            "context": context.as_trace(),
-            "active_signals": context.active_signals,
-            "superseded_signals": context.superseded_signals,
-            "decision_path": decision_path,
-            "selected": selected,
-            "selected_by": selected_by,
-        }
-        return selected
-
-    def normalize_control_context(self, task: dict[str, Any], focal: dict[str, Any], target: str, evidence: dict[str, Any]) -> ControlContext:
         records = records_of(task)
-        rec = record_map(records)
-        record_types = {str(r.get("type")) for r in records}
-        prompt = str(task.get("prompt", "")).lower()
+        types = {str(r.get("type")) for r in records}
         values = " ".join(text_of(r.get("value")) for r in records).lower()
-        attrs = focal.get("attrs") or {}
-        contains = {str(x) for x in attrs.get("contains", [])} if isinstance(attrs.get("contains"), list) else set()
-        sensitive_vocab = {"raw_quote", "rrn", "location", "numeric_value", "doctor_note", "card_number", "name", "amount"}
-        sensitive_fields = contains & sensitive_vocab
-        external_policy = str(rec.get("external_share_policy") or "").lower()
-        if any(tok in external_policy for tok in ["raw", "rrn", "numeric", "doctor", "location", "sensitive", "summary_only"]):
-            sensitive_fields.update(tok for tok in sensitive_vocab if tok in external_policy)
-        removable = sensitive_fields & {"raw_quote", "rrn", "location", "numeric_value", "doctor_note", "card_number", "name", "amount"}
+        flags = set(evidence.get("risk_flags", []))
 
-        local_update_requested = target == "memory_store" or self.has_local_only_target_signal({
-            "prompt_lower": prompt,
-            "records": records,
-            "record_map": rec,
-        })
-        dispatch_cancelled = local_update_requested and any(tok in prompt for tok in ["공유하지", "보내지 말", "바깥으로 보내지", "전달 대신", "전달하지", "취소", "외부 공유가 아니라"])
-        external_dispatch_requested = not local_update_requested and target not in {"user", "memory_store"}
-        target_ambiguous = "ambiguous_target" in record_types or "ambiguous_focal" in record_types
-        target_resolved = target not in {"", "user"} or bool(rec.get("resolved_target")) or bool(rec.get("target_changed_after_turn"))
-        confirmation_signal = bool(evidence.get("requires_confirmation")) if self.enable_control_fixed_slm else False
-        redaction_signal = bool(evidence.get("requires_redaction")) if self.enable_control_fixed_slm else False
-        user_choice_required = self.control_user_choice_required(prompt, rec, record_types, target)
-        blocking_signal = self.control_action_blocked(prompt, rec, record_types, values, target, local_update_requested)
-        violation_signals: set[str] = set()
-        if "consent" in record_types and any(word in values for word in ["revoked", "withdraw", "denied", "철회", "거부"]):
-            violation_signals.add("consent_revoked")
-        if "security_alert" in record_types and not local_update_requested:
-            violation_signals.add("security_alert")
-        if "safety_mode" in record_types and not local_update_requested:
-            violation_signals.add("safety_mode")
-        if external_policy and "doctor_note_forbidden" in external_policy and not local_update_requested:
-            violation_signals.add("non_removable_health_detail")
-        if any(word in prompt for word in ["피해야", "피하고"]) and "persistent_memory_recall" in record_types and not local_update_requested:
-            violation_signals.add("stored_preference_violation")
-
-        state_changes: list[str] = []
-        if "target_changed_after_turn" in record_types:
-            state_changes.append("target_changed_after_turn")
-        if local_update_requested:
-            state_changes.append("local_update_overrides_dispatch")
-        if "persistent_memory_write" in record_types:
-            state_changes.append("persistent_memory_write")
-
-        active_signals: list[str] = []
-        superseded_signals: list[str] = []
-        if local_update_requested:
-            active_signals.append("local_update_requested")
-            if target_ambiguous:
-                superseded_signals.append("older_external_target_or_focal_ambiguity")
-            if sensitive_fields:
-                superseded_signals.append("external_sensitive_share_policy")
-        if target_ambiguous and not local_update_requested:
-            active_signals.append("target_or_focal_ambiguity")
-        if sensitive_fields or external_policy or redaction_signal:
-            active_signals.append("sensitive_or_redaction_signal")
-        if user_choice_required:
-            active_signals.append("user_choice_required")
-        if blocking_signal:
-            active_signals.append("blocking_signal")
-
-        safe_reduction_possible = bool(
-            self.enable_control_safe_amend
-            and not local_update_requested
-            and not user_choice_required
-            and (removable or external_policy or "enterprise_policy_recall" in record_types or "ops_memory_recall" in record_types)
-            and not violation_signals
-        )
-        return ControlContext(
-            focal_id=str(focal.get("id") or ""),
-            target=target,
-            record_types=record_types,
-            risk_signals=set(evidence.get("risk_flags", [])) if self.enable_control_fixed_slm else set(),
-            violation_signals=violation_signals,
-            target_resolved=target_resolved,
-            target_ambiguous=target_ambiguous,
-            confirmation_signal=confirmation_signal,
-            redaction_signal=redaction_signal,
-            sensitive_fields=sensitive_fields,
-            removable_sensitive_fields=removable,
-            safe_reduction_possible=safe_reduction_possible,
-            external_dispatch_requested=external_dispatch_requested,
-            local_update_requested=local_update_requested,
-            dispatch_cancelled=dispatch_cancelled,
-            action_blocked=blocking_signal or bool(violation_signals),
-            user_choice_required=user_choice_required,
-            state_changes=state_changes,
-            active_signals=active_signals,
-            superseded_signals=superseded_signals,
-        )
-
-    def control_user_choice_required(self, prompt: str, rec: dict[str, Any], record_types: set[str], target: str) -> bool:
-        if not self.enable_control_user_choice:
-            return False
-        explicit_uncertainty = ["사용자에게 먼저 확인", "누구에게", "어떤 범위", "다시 확인", "아직 확인되지", "새 전제가 확정되지", "조건 변경 여부", "현재 정보만으로는", "결론을 내릴 수 없다", "물어"]
-        if any(word in prompt for word in explicit_uncertainty):
-            return True
-        if "target_changed_after_turn" in record_types:
-            return True
-        if "memory_conflict" in record_types or "payment_policy" in record_types:
-            return True
-        if "duration_ambiguous" in record_types and not any(word in prompt for word in ["로컬", "기기 내부", "상태값", "상태 기록", "바깥으로 보내지"]):
-            return True
-        authority = str(rec.get("dispatch_authority_check") or "").lower()
-        boundary = str(rec.get("share_boundary_update") or "").lower()
-        unresolved_route = any(x in authority for x in ["incomplete", "pending"]) or "blocked_until_binding" in boundary
-        if unresolved_route and target == "user" and any(word in prompt for word in ["확인", "확정", "전제", "누구에게", "어떤 범위"]):
-            return True
-        if "ambiguous_focal" in record_types and rec.get("route_candidate_snapshot") == "external_candidates_present" and not any(word in prompt for word in ["전제를 무효화", "확인 전에는 처리하지"]):
-            return True
-        return False
-
-    def control_action_blocked(self, prompt: str, rec: dict[str, Any], record_types: set[str], values: str, target: str, local_update_requested: bool) -> bool:
-        if not self.enable_control_blocking:
-            return False
-        if local_update_requested:
-            return False
-        if any(word in prompt for word in ["멈춰야", "막아야", "실행하면 안", "허용 근거", "과거 승인에 기대면 안", "전제가 사라", "전제를 무효화"]):
-            return True
-        if "security_alert" in record_types or "safety_mode" in record_types:
-            return True
-        if "consent" in record_types and any(word in values for word in ["revoked", "withdraw", "denied", "철회", "거부"]):
-            return True
-        external_policy = str(rec.get("external_share_policy") or "").lower()
-        if "doctor_note_forbidden" in external_policy:
-            return True
-        if any(word in prompt for word in ["피해야", "피하고"]) and "persistent_memory_recall" in record_types:
-            return True
-        return False
-
-    def apply_control_decision_table(self, context: ControlContext) -> tuple[str, str, list[str]]:
-        path: list[str] = []
-        if self.enable_control_local_precedence and context.local_update_requested:
-            path.extend(["latest state is local/internal update", "external dispatch and stale ambiguity are superseded", "local update is executable"])
-            return "proceed", "C-01_local_update_proceeds", path
-        if context.action_blocked:
-            path.append("current action is blocked")
-            if context.user_choice_required and not ({"security_alert", "safety_mode", "consent_revoked"} & context.violation_signals):
-                path.append("blocking state can be resolved by user choice")
-                return "ask", "C-02_user_choice_can_resolve_block", path
-            path.append("user confirmation alone is insufficient or violation is active")
-            return "hold", "C-03_non_resolvable_block_or_violation", path
-        if context.user_choice_required:
-            path.extend(["no hard block", "one correct execution state cannot be selected without user choice"])
-            return "ask", "C-04_unresolved_user_choice", path
-        if context.safe_reduction_possible:
-            path.extend(["original scope is unsafe or too broad", "sensitive fields are removable or policy gives narrower allowed scope", "request goal remains satisfiable"])
-            return "amend", "C-05_safe_automatic_amendment", path
-        path.extend(["no active block", "no unresolved mandatory user choice", "no required automatic narrowing"])
-        return "proceed", "C-06_execute_as_resolved", path
+        # TODO: 단일 record label만 보지 말고 prompt, focal object, session 상태를 함께 보강하세요.
+        if "security_alert" in types or "phishing" in flags or "safety_mode" in types or "privacy_guard" in types:
+            return "hold"
+        if "consent" in types and any(word in values for word in ["revoked", "withdraw", "denied", "철회", "거부"]):
+            return "hold"
+        if evidence.get("requires_confirmation") or any(t in types for t in ["ambiguous_target", "ambiguous_focal", "duration_ambiguous", "memory_conflict", "amount_changed", "merchant_verification", "routine_scope"]):
+            return "ask"
+        if evidence.get("requires_redaction") or any(t in types for t in ["external_share_policy", "share_scope", "payment_policy", "enterprise_policy_recall"]):
+            return "amend"
+        return "proceed"
 
     def build_content_scope(self, task: dict[str, Any], focal: dict[str, Any], control: str, evidence: dict[str, Any]) -> dict[str, Any]:
-        context = self.normalize_scope_context(task, focal, control, evidence)
-        scope, selected_by, path, field_sources = self.apply_scope_decision_table(context)
-        scope, warnings = self.validate_content_scope_consistency(scope, context)
-        self.last_content_scope_trace = {
-            "context": context.as_trace(),
-            "decision_path": path,
-            "selected_mode": scope.get("mode"),
-            "allowed_fields": scope.get("allowed_fields", []),
-            "excluded_fields": scope.get("excluded_fields", []),
-            "requires_user_confirmation": scope.get("requires_user_confirmation"),
-            "selected_by": selected_by,
-            "allowed_fields_source": field_sources.get("allowed_fields"),
-            "excluded_fields_source": field_sources.get("excluded_fields"),
-            "confirmation_reason": field_sources.get("confirmation"),
-            "warnings": warnings,
-        }
-        return scope
-
-    def normalize_scope_context(self, task: dict[str, Any], focal: dict[str, Any], control: str, evidence: dict[str, Any]) -> ScopeContext:
-        records = records_of(task)
-        rec = record_map(records)
         attrs = focal.get("attrs") or {}
         contains = {str(x) for x in attrs.get("contains", [])} if isinstance(attrs.get("contains"), list) else set()
-        available_fields = {field_name(c) for c in contains}
-        for key in ("title", "summary", "body", "status"):
-            if key in attrs:
-                available_fields.add("summary" if key == "body" else key)
-        if not available_fields and focal:
-            available_fields.update({"summary", "title"})
 
-        prompt = str(task.get("prompt", "")).lower()
-        record_text = " ".join(text_of(r.get("value")) for r in records).lower()
-        structure_text = f"{record_text} {text_of(rec.get('external_share_policy'))}".lower()
-        requested_fields: set[str] = set()
-        if any(token in structure_text for token in ("summary_only", "summary-safe", "summarize")) or any(token in prompt for token in ("요약", "summary")):
-            requested_fields.add("summary")
-        if any(token in structure_text for token in ("raw_quote", "raw_allowed", "raw_content")) or any(token in prompt for token in ("원문", "원본", "raw")):
-            requested_fields.add("raw_quote")
-        if any(token in structure_text for token in ("status", "memory", "update")):
-            requested_fields.add("status")
-
-        sensitive_aliases = {
-            "raw_quote": "raw_quote",
-            "rrn": "identifier",
-            "resident_id": "identifier",
-            "identifier": "identifier",
-            "location": "location",
-            "amount": "numeric_value",
-            "numeric_value": "numeric_value",
-            "card_number": "payment",
-            "payment": "payment",
-            "doctor_note": "health",
-            "health": "health",
-            "name": "identifier",
-        }
-        sensitive_fields = {sensitive_aliases[c] for c in contains if c in sensitive_aliases}
-        for token, canonical in sensitive_aliases.items():
-            if token in structure_text:
-                sensitive_fields.add(canonical)
-        if self.enable_scope_fixed_slm and evidence.get("requires_redaction"):
-            sensitive_fields.add("raw_quote")
-
-        control_trace = getattr(self, "last_control_trace", {})
-        control_context = control_trace.get("context", {}) if isinstance(control_trace, dict) else {}
-        target_trace = getattr(self, "last_target_trace", {})
-        target = str((target_trace or {}).get("selected") or task.get("target") or "")
-        target_category = str((target_trace or {}).get("selected_category") or "")
-        local_update = bool(control_context.get("local_update_requested")) or target == "memory_store"
-        dispatch_cancelled = bool(control_context.get("dispatch_cancelled")) or any(str(r.get("type")) in {"dispatch_cancelled", "target_changed_after_turn", "share_boundary_update"} for r in records)
-        status_update_only = local_update or dispatch_cancelled or "persistent_memory_write" in rec
-        external_dispatch = bool(control_context.get("external_dispatch_requested")) or (bool(target) and target not in {"user", "memory_store"} and not status_update_only)
-        blocked = control == "hold" or bool(control_context.get("action_blocked"))
-        confirmation_pending = control == "ask" and self.enable_scope_confirmation and (bool(control_context.get("user_choice_required")) or bool(control_context.get("confirmation_signal")) or bool(evidence.get("needs_confirmation")))
-        scope_boundary_signals = {
-            str(r.get("type"))
-            for r in records
-            if str(r.get("type")) in {"external_share_policy", "share_boundary_update", "session_share_policy", "target_changed_after_turn", "persistent_memory_write"}
-        }
-        removable = sensitive_fields & {"raw_quote", "location", "numeric_value", "health", "payment", "identifier"}
-        non_removable = sensitive_fields - removable
-        safe_redaction_possible = bool(removable) and control in {"amend", "ask"} and not blocked
-        return ScopeContext(
-            focal_id=str(focal.get("id") or ""),
-            target=target,
-            control=control,
-            focal_type=str(focal.get("type") or "") or None,
-            target_category=target_category or None,
-            local_update=local_update,
-            external_dispatch=external_dispatch,
-            confirmation_pending=confirmation_pending,
-            blocked=blocked,
-            sensitive_fields=sensitive_fields,
-            removable_sensitive_fields=removable,
-            non_removable_sensitive_fields=non_removable,
-            requested_fields=requested_fields,
-            available_fields=available_fields,
-            summary_requested="summary" in requested_fields,
-            raw_requested="raw_quote" in requested_fields,
-            status_update_only=status_update_only,
-            scope_boundary_signals=scope_boundary_signals,
-            safe_redaction_possible=safe_redaction_possible,
-        )
-
-    def apply_scope_decision_table(self, context: ScopeContext) -> tuple[dict[str, Any], str, list[str], dict[str, str]]:
-        path: list[str] = []
-        sources: dict[str, str] = {}
-        if self.enable_scope_none and context.blocked:
-            path.append("blocked or hold state has no usable content scope")
-            sources["confirmation"] = "guard/blocking state is not a scope confirmation request"
-            return {"mode": "none", "allowed_fields": [], "excluded_fields": [], "requires_user_confirmation": False}, "S-01_hold_none", path, sources
-        if self.enable_scope_local_status_only and context.control == "proceed" and (context.status_update_only or context.local_update):
-            excluded = self.build_scope_excluded_fields(context, "status_only")
-            path.extend(["current action is local/internal or status update", "content dispatch is reduced to status field"])
-            sources.update({"allowed_fields": "status_only default", "excluded_fields": "raw/sensitive details not needed for local status update", "confirmation": "local/status update can proceed without scope confirmation"})
-            return {"mode": "status_only", "allowed_fields": ["status"], "excluded_fields": excluded, "requires_user_confirmation": False}, "S-02_local_status_only", path, sources
-        if context.confirmation_pending:
-            path.append("user confirmation is required before content scope can be used")
-            excluded = self.build_scope_excluded_fields(context, "none")
-            sources.update({"allowed_fields": "none while confirmation is unresolved", "excluded_fields": "confirmation-pending sensitive/requested fields", "confirmation": "control context requires user choice or confirmation"})
-            return {"mode": "none", "allowed_fields": [], "excluded_fields": excluded, "requires_user_confirmation": True}, "S-03_ask_none_pending_scope", path, sources
-        if self.enable_scope_redacted and context.control == "amend" and context.safe_redaction_possible and (context.external_dispatch or context.raw_requested or context.sensitive_fields):
-            excluded = self.build_scope_excluded_fields(context, "redacted")
-            if excluded:
-                allowed = self.build_scope_allowed_fields(context, "redacted", excluded)
-                path.extend(["automatic amendment is active", "removable sensitive fields are excluded", "remaining fields preserve the request goal"])
-                sources.update({"allowed_fields": "available/requested fields minus redaction exclusions", "excluded_fields": "removable sensitive fields", "confirmation": "safe redaction supports automatic amendment"})
-                return {"mode": "redacted", "allowed_fields": allowed, "excluded_fields": excluded, "requires_user_confirmation": False}, "S-04_redacted_amendment", path, sources
-            path.append("redacted candidate lacked concrete exclusions, so it was not selected")
-        if self.enable_scope_summary and (context.summary_requested or (context.control == "amend" and context.non_removable_sensitive_fields)):
-            excluded = self.build_scope_excluded_fields(context, "summary")
-            allowed = self.build_scope_allowed_fields(context, "summary", excluded)
-            path.extend(["summary representation is requested or safer than raw details", "raw details are reduced"])
-            sources.update({"allowed_fields": "summary-safe fields", "excluded_fields": "raw detail fields removed by summary", "confirmation": "summary scope is usable without additional confirmation"})
-            return {"mode": "summary", "allowed_fields": allowed, "excluded_fields": excluded, "requires_user_confirmation": False}, "S-05_summary_scope", path, sources
-        if self.enable_scope_raw and context.control == "proceed" and not context.local_update and not context.status_update_only and not context.sensitive_fields and not context.summary_requested and not context.confirmation_pending:
-            allowed = self.build_scope_allowed_fields(context, "raw", [])
-            path.extend(["execution is resolved", "no active redaction, summary, local-only, or confirmation boundary", "raw content scope is allowed"])
-            sources.update({"allowed_fields": "available/requested safe raw fields", "excluded_fields": "no active exclusions", "confirmation": "no confirmation boundary is active"})
-            return {"mode": "raw", "allowed_fields": allowed, "excluded_fields": [], "requires_user_confirmation": False}, "S-06_raw_no_restrictions", path, sources
-        excluded = self.build_scope_excluded_fields(context, "summary")
-        allowed = self.build_scope_allowed_fields(context, "summary", excluded)
-        path.extend(["safe executable fallback uses summary-level scope", "raw details are avoided unless explicitly allowed"])
-        sources.update({"allowed_fields": "summary-safe fallback fields", "excluded_fields": "raw/sensitive detail fallback exclusions", "confirmation": "fallback summary does not require confirmation"})
-        return {"mode": "summary", "allowed_fields": allowed, "excluded_fields": excluded, "requires_user_confirmation": False}, "S-07_summary_safe_fallback", path, sources
-
-    def build_scope_allowed_fields(self, context: ScopeContext, mode: str, excluded_fields: list[str]) -> list[str]:
-        if mode == "none":
-            return []
-        if mode == "status_only":
-            return ["status"]
-        if mode == "summary":
-            return ["summary"] if "summary" in context.available_fields or not context.available_fields else sorted(context.available_fields & {"summary", "title", "status"}) or ["summary"]
-        available = set(context.available_fields) or {"summary", "title", "status"}
-        requested = set(context.requested_fields)
-        if requested:
-            available = (available | {"summary", "title", "status"}) & (requested | {"summary", "title", "status"})
-        safe = available - set(excluded_fields)
-        if mode == "raw":
-            return sorted(safe or {"summary", "title"})
-        if mode == "redacted":
-            safe.discard("raw_quote")
-            return sorted((safe & {"summary", "title", "status"}) or {"summary"})
-        return sorted(safe)
-
-    def build_scope_excluded_fields(self, context: ScopeContext, mode: str) -> list[str]:
-        if mode == "raw":
-            return []
-        if mode == "none":
-            return sorted(context.sensitive_fields & (context.requested_fields or context.sensitive_fields))
-        if mode == "status_only":
-            return sorted((context.sensitive_fields | {"raw_quote"}) - {"status"})
-        if mode == "redacted":
-            return sorted(context.removable_sensitive_fields)
-        if mode == "summary":
-            excluded = {"raw_quote"} if context.raw_requested or context.external_dispatch or context.sensitive_fields else set()
-            excluded |= context.non_removable_sensitive_fields
-            return sorted(excluded)
-        return []
-
-    def validate_content_scope_consistency(self, scope: dict[str, Any], context: ScopeContext) -> tuple[dict[str, Any], list[str]]:
-        warnings: list[str] = []
-        mode = str(scope.get("mode") or "summary")
-        if mode == "status_only" and "status" not in scope.get("allowed_fields", []):
-            scope["allowed_fields"] = ["status"]
-            warnings.append("repaired status_only missing status field")
-        if mode == "redacted" and not scope.get("excluded_fields"):
-            scope["mode"] = "summary"
-            scope["allowed_fields"] = self.build_scope_allowed_fields(context, "summary", self.build_scope_excluded_fields(context, "summary"))
-            scope["excluded_fields"] = self.build_scope_excluded_fields(context, "summary")
-            warnings.append("redacted scope without exclusions fell back to summary")
-        if mode == "none" and scope.get("allowed_fields"):
-            scope["allowed_fields"] = []
-            warnings.append("removed allowed_fields from none scope")
-        if mode == "raw" and scope.get("excluded_fields"):
-            scope["excluded_fields"] = []
-            warnings.append("removed exclusions from raw scope")
-        if context.control == "hold" and scope.get("mode") != "none":
-            scope.update({"mode": "none", "allowed_fields": [], "excluded_fields": [], "requires_user_confirmation": False})
-            warnings.append("hold control forced none scope")
-        return scope, warnings
+        if control == "hold":
+            return {"mode": "none", "allowed_fields": [], "excluded_fields": [], "requires_user_confirmation": False}
+        if control == "ask":
+            return {"mode": "summary", "allowed_fields": ["status"], "excluded_fields": sorted(contains & {"raw_quote", "rrn", "location", "numeric_value", "doctor_note", "card_number"}), "requires_user_confirmation": True}
+        if control == "amend" or evidence.get("requires_redaction"):
+            excluded = sorted(contains & {"raw_quote", "rrn", "location", "numeric_value", "doctor_note", "card_number", "name"})
+            return {"mode": "redacted", "allowed_fields": ["summary", "title", "status"], "excluded_fields": excluded or ["raw_quote"], "requires_user_confirmation": False}
+        return {"mode": "summary", "allowed_fields": ["summary", "title", "status"], "excluded_fields": ["raw_quote"], "requires_user_confirmation": False}
 
     def build_policy(self, task: dict[str, Any], focal: dict[str, Any], control: str, evidence: dict[str, Any]) -> dict[str, Any]:
         flags = set(evidence.get("risk_flags", []))
