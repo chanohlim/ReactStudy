@@ -1,1 +1,0 @@
-{"root":["./src/main.tsx","./src/app/Layout.tsx","./src/app/ProtectedRoute.tsx","./src/app/router.tsx","./src/features/auth/AuthContext.tsx","./src/lib/api.ts","./src/lib/cleaning.test.ts","./src/lib/cleaning.ts","./src/lib/supabase.ts","./src/pages/pages.tsx","./src/types/api.ts","./vite.config.ts","./vitest.setup.ts"],"errors":true,"version":"5.6.3"}
