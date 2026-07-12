@@ -227,17 +227,13 @@ class FinalHarness:
         attrs = focal.get("attrs") or {}
 
         # TODO: target은 항상 사람 이름만은 아닙니다. 앱, 채널, 장치, memory_store, user 확인도 target이 될 수 있습니다.
-        if "persistent_memory_write" in rec:
-            return "memory_store"
-
-        for key in ("current_target", "resolved_target"):
+        for key in ("target_changed_after_turn", "current_target", "resolved_target"):
             target = self.target_from_value(rec.get(key))
             if target:
                 return target
 
-        changed_target = self.target_from_value(rec.get("target_changed_after_turn"))
-        if changed_target and not session.get("last_target"):
-            return changed_target
+        if "persistent_memory_write" in rec:
+            return "memory_store"
 
         recalled = rec.get("persistent_memory_recall")
         if isinstance(recalled, dict):
