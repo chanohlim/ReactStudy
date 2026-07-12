@@ -99,6 +99,7 @@ class DecisionState:
     summary_requested: bool = False
     sensitive_fields: tuple[str, ...] = ()
     block_reason: str = "safety_or_policy"
+    policy_flags: tuple[str, ...] = ()
 
 def nested_strings(value: Any) -> list[str]:
     if isinstance(value, str):
@@ -258,7 +259,7 @@ class FinalHarness:
         consent_block = "consent" in types and any(word in values for word in ["revoked", "withdraw", "denied", "철회", "거부"])
         security_block = "security_alert" in types and any(word in values for word in ["phishing", "impersonation", "suspected", "피싱"])
         impossible = any(word in values for word in ["invalidated", "blocked", "forbidden", "불가"])
-        blocked = consent_block or security_block or ("safety_mode" in types and impossible)
+        blocked = consent_block or security_block or ("precondition_invalidated" in values) or ("safety_mode" in types and impossible)
 
         local_update = target == "memory_store" or "persistent_memory_write" in rec or rec.get("share_boundary_update") == "local_update_boundary"
         external_dispatch = (not local_update) and self.is_external_target(target, values)
@@ -267,11 +268,33 @@ class FinalHarness:
         needs_user_input = (not blocked) and (not local_update) and bool(types & CONFIRM_TYPES) and unresolved
 
         policy_limited = bool(types & REDIRECT_TYPES) or evidence.get("requires_redaction")
-        redact_needed = (not blocked) and (not needs_user_input) and (not local_update) and external_dispatch and bool(sensitive or policy_limited)
+        redact_needed = (not blocked) and (not needs_user_input) and (not local_update) and (((external_dispatch or "external_share_policy" in types) and bool(sensitive or policy_limited)) or (bool(evidence.get("requires_redaction")) and bool(sensitive)))
 
         summary_requested = (not blocked) and (not needs_user_input) and (not local_update) and (not redact_needed) and (
             "summary" in values or "요약" in str(task.get("prompt", "")).lower()
         )
+
+        flags: set[str] = set()
+        if rec.get("session_share_policy") == "strict":
+            flags.add("strict_share_policy")
+        if "ambiguous_target" in types:
+            flags.add("target_ambiguity")
+        if "ambiguous_focal" in types:
+            flags.add("ambiguous_focal")
+        if "external_share_policy" in types or external_dispatch:
+            flags.add("external_share")
+        if local_update or rec.get("share_boundary_update") == "local_update_boundary" or rec.get("route_candidate_snapshot") == "local_candidate_only" or rec.get("dispatch_authority_check") == "local_authority_confirmed":
+            flags.add("local_only")
+        if sensitive:
+            flags.add("sensitive_content")
+        if redact_needed:
+            flags.add("minimal_disclosure")
+        if needs_user_input:
+            flags.add("clarification_required")
+        if "precondition_invalidated" in values:
+            flags.update(["precondition_changed", "precondition_invalidated", "safety"])
+        elif "guardrail_ladder_signal" in types:
+            flags.add("precondition_changed")
 
         reason = "consent_revoked" if consent_block else ("security_alert" if security_block else "safety_or_policy")
         return DecisionState(
@@ -283,6 +306,7 @@ class FinalHarness:
             summary_requested=summary_requested,
             sensitive_fields=sensitive,
             block_reason=reason,
+            policy_flags=tuple(sorted(flags)),
         )
 
     def decide_control(self, state: DecisionState) -> str:
@@ -308,7 +332,7 @@ class FinalHarness:
         return {"mode": "raw", "allowed_fields": ["raw"], "excluded_fields": [], "requires_user_confirmation": False}
 
     def build_policy(self, state: DecisionState, control: str, evidence: dict[str, Any]) -> dict[str, Any]:
-        flags = set(evidence.get("risk_flags", []))
+        flags = set(state.policy_flags)
         violations: set[str] = set()
         if state.external_dispatch:
             flags.add("external_share")
