@@ -46,9 +46,25 @@ class FixedSLMClient:
             flags.add("ambiguous_reference")
             tags.add("resolved_target")
 
+        records = device_state.get("records", []) or []
+        record_types = {str(rec.get("type")) for rec in records if isinstance(rec, dict)}
+        record_values = " ".join(str(rec.get("value", "")) for rec in records if isinstance(rec, dict)).lower()
+        has_current_binding = bool({"target_changed_after_turn", "current_target"} & record_types)
+        has_resolved_target = has_current_binding or "resolved_target" in record_types
+        local_update = "persistent_memory_write" in record_types or "local_update_boundary" in record_values
+        dispatch_blocked = "dispatch_blocked_until_binding" in record_values
+        ambiguous = bool({"ambiguous_target", "ambiguous_focal"} & record_types)
+        redaction = any(k in text for k in ["raw_sensitive_forbidden", "raw_quote_forbidden", "doctor_note_forbidden", "numeric_value_forbidden", "no_location", "원문"])
+
         return {
+            "action_kind": "local_update" if local_update else ("external_dispatch" if has_resolved_target else ("clarification" if ambiguous else "unknown")),
+            "target_hint": "memory_store" if ({"persistent_memory_write", "external_share_policy"} & record_types) and not has_current_binding else "",
+            "target_status": "resolved" if (has_resolved_target or "persistent_memory_write" in record_types or "external_share_policy" in record_types) else ("ambiguous" if "ambiguous_target" in record_types else "absent"),
+            "confirmation_status": "pending" if ambiguous and not has_resolved_target else ("resolved" if has_resolved_target else "unknown"),
+            "permission_status": "blocked" if dispatch_blocked else "unknown",
+            "scope_hint": "redactable" if redaction else ("summary" if "summary" in text or "요약" in text else "unknown"),
             "risk_flags": sorted(flags),
-            "requires_redaction": any(k in text for k in ["raw_sensitive_forbidden", "raw_quote_forbidden", "doctor_note_forbidden", "numeric_value_forbidden", "no_location", "원문"]),
+            "requires_redaction": redaction,
             "requires_confirmation": any(k in text for k in ["amount_changed", "duration_ambiguous", "missing", "확인", "모호"]),
             "audit_tags": sorted(tags),
         }
@@ -228,10 +244,20 @@ class FinalHarness:
         attrs = focal.get("attrs") or {}
 
         # TODO: target은 항상 사람 이름만은 아닙니다. 앱, 채널, 장치, memory_store, user 확인도 target이 될 수 있습니다.
-        for key in ("target_changed_after_turn", "current_target", "resolved_target"):
+        for key in ("target_changed_after_turn", "current_target"):
             target = self.target_from_value(rec.get(key))
             if target:
                 return target
+
+        if focal.get("type") == "personal_note":
+            return "memory_store"
+
+        if evidence.get("target_hint") == "memory_store" and evidence.get("target_status") == "resolved":
+            return "memory_store"
+
+        target = self.target_from_value(rec.get("resolved_target"))
+        if target:
+            return target
 
         if "persistent_memory_write" in rec:
             return "memory_store"
@@ -239,7 +265,7 @@ class FinalHarness:
         recalled = rec.get("persistent_memory_recall")
         if isinstance(recalled, dict):
             mem = self.memory.get(str(recalled.get("memory_key") or ""), {})
-            for key in ("approval_channel", "preferred_channel", "health_channel", "last_success_target"):
+            for key in ("preferred_channel", "approval_channel", "health_channel", "last_success_target"):
                 if isinstance(mem, dict) and mem.get(key):
                     return str(mem[key])
 
@@ -259,13 +285,18 @@ class FinalHarness:
         consent_block = "consent" in types and any(word in values for word in ["revoked", "withdraw", "denied", "철회", "거부"])
         security_block = "security_alert" in types and any(word in values for word in ["phishing", "impersonation", "suspected", "피싱"])
         impossible = any(word in values for word in ["invalidated", "blocked", "forbidden", "불가"])
-        blocked = consent_block or security_block or ("precondition_invalidated" in values) or ("safety_mode" in types and impossible)
+        blocked = consent_block or security_block or ("precondition_invalidated" in values) or (evidence.get("permission_status") == "blocked" and "ambiguous_focal" not in types) or ("safety_mode" in types and impossible)
 
         local_update = target == "memory_store" or "persistent_memory_write" in rec or rec.get("share_boundary_update") == "local_update_boundary"
+        local_boundary_ambiguous = rec.get("share_boundary_update") == "local_update_boundary" and "ambiguous_target" in types
+        if local_boundary_ambiguous:
+            local_update = False
         external_dispatch = (not local_update) and self.is_external_target(target, values)
 
         unresolved = any(word in values for word in ["pending", "incomplete", "missing", "unresolved", "ambiguous"])
-        needs_user_input = (not blocked) and (not local_update) and bool(types & CONFIRM_TYPES) and unresolved
+        memory_recall = rec.get("persistent_memory_recall")
+        stale_memory = isinstance(memory_recall, dict) and bool(memory_recall.get("age_hint"))
+        needs_user_input = (not blocked) and (not local_update) and ((bool(types & CONFIRM_TYPES) and unresolved) or stale_memory or local_boundary_ambiguous)
 
         policy_limited = bool(types & REDIRECT_TYPES) or evidence.get("requires_redaction")
         redact_needed = (not blocked) and (not needs_user_input) and (not local_update) and (((external_dispatch or "external_share_policy" in types) and bool(sensitive or policy_limited)) or (bool(evidence.get("requires_redaction")) and bool(sensitive)))
@@ -289,6 +320,11 @@ class FinalHarness:
             flags.add("sensitive_content")
         if redact_needed:
             flags.add("minimal_disclosure")
+        review_target = str(target).lower()
+        simple_legal_review = review_target.startswith("legal_") and review_target.endswith("_review") and not unresolved and not ({"ambiguous_target", "ambiguous_focal"} & types)
+        if review_target.endswith("_review") and (not simple_legal_review) and (not blocked) and (not local_update) and (not redact_needed):
+            needs_user_input = True
+
         if needs_user_input:
             flags.add("clarification_required")
         if "precondition_invalidated" in values:
@@ -326,10 +362,10 @@ class FinalHarness:
         if state.local_update:
             return {"mode": "status_only", "allowed_fields": ["status"], "excluded_fields": list(state.sensitive_fields), "requires_user_confirmation": False}
         if state.redact_needed:
-            return {"mode": "redacted", "allowed_fields": ["summary", "title", "status"], "excluded_fields": list(state.sensitive_fields) or ["raw_quote"], "requires_user_confirmation": False}
+            return {"mode": "redacted", "allowed_fields": ["summary"], "excluded_fields": list(state.sensitive_fields) or ["raw_quote"], "requires_user_confirmation": False}
         if state.summary_requested:
-            return {"mode": "summary", "allowed_fields": ["summary", "title", "status"], "excluded_fields": list(state.sensitive_fields), "requires_user_confirmation": False}
-        return {"mode": "raw", "allowed_fields": ["raw"], "excluded_fields": [], "requires_user_confirmation": False}
+            return {"mode": "summary", "allowed_fields": ["summary"], "excluded_fields": list(state.sensitive_fields), "requires_user_confirmation": False}
+        return {"mode": "raw", "allowed_fields": ["summary", "title"], "excluded_fields": [], "requires_user_confirmation": False}
 
     def build_policy(self, state: DecisionState, control: str, evidence: dict[str, Any]) -> dict[str, Any]:
         flags = set(state.policy_flags)
@@ -344,6 +380,10 @@ class FinalHarness:
             flags.add("minimal_disclosure")
         if state.needs_user_input:
             flags.add("clarification_required")
+        if "precondition_changed" in flags:
+            flags.update({"precondition_invalidated", "safety"})
+        if state.blocked and "precondition_changed" in flags:
+            violations.add("precondition_changed_ignored")
         if state.blocked and state.block_reason in {"consent_revoked", "security_alert"}:
             violations.add(state.block_reason)
         return {
@@ -353,18 +393,29 @@ class FinalHarness:
         }
 
     def build_plan_events(self, focal_id: str, target: str, control: str, scope: dict[str, Any], policy: dict[str, Any], state: DecisionState) -> list[dict[str, Any]]:
-        events = [{"verb": "read", "target": focal_id, "args": {"purpose": "inspect_task_context"}}]
-        if state.blocked:
-            events.append({"verb": "guard", "target": focal_id, "args": {"reason": state.block_reason}})
+        purpose = "inspect_context"
+        if state.local_update:
+            purpose = "local_update"
+        elif state.redact_needed:
+            purpose = "minimal_disclosure"
+        elif state.blocked:
+            purpose = "invalidated_precondition"
         elif state.needs_user_input:
-            events.append({"verb": "clarify", "target": "user", "args": {"reason": "confirmation_required"}})
+            purpose = "route_resolution_required"
+        events = [{"verb": "read", "target": focal_id, "args": {"purpose": purpose}}]
+        if state.blocked:
+            reason = "precondition_invalidated" if state.block_reason == "safety_or_policy" else state.block_reason
+            events.append({"verb": "guard", "target": focal_id, "args": {"reason": reason}})
+        elif state.needs_user_input:
+            events.append({"verb": "clarify", "target": "user", "args": {"reason": "route_resolution_required"}})
         elif state.local_update:
             events.append({"verb": "verify", "target": "share_boundary_update", "args": {"scope": "local_update"}})
             events.append({"verb": "update", "target": focal_id, "args": {"state": "local_status_only"}})
         else:
             mode = str(scope.get("mode") or "raw")
             if state.redact_needed:
-                events.append({"verb": "redact", "target": focal_id, "args": {"remove": "sensitive_fields"}})
+                remove = "raw_quote" if "raw_quote" in state.sensitive_fields else "sensitive_fields"
+                events.append({"verb": "redact", "target": focal_id, "args": {"remove": remove}})
             elif state.summary_requested:
                 events.append({"verb": "summarize", "target": focal_id, "args": {"mode": "summary"}})
             events.append({"verb": "dispatch", "target": target, "args": {"scope": mode}})
@@ -397,11 +448,9 @@ class FinalHarness:
         lowered = str(target).lower()
         if lowered in LOCAL_TARGETS or not lowered:
             return False
-        if "external" in values or "외부" in values or "vendor" in values or "vendor" in lowered:
-            return True
-        if any(word in lowered for word in INTERNAL_WORDS):
+        if lowered in {"user", "me"}:
             return False
-        return lowered not in {"user", "me"}
+        return True
 
     def safe_fallback(self) -> dict[str, Any]:
         return {
